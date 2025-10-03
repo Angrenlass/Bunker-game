@@ -7,11 +7,11 @@ def generate_players(player_names, data):
 
     professions = data["professions"].copy()
     ages = data["ages"].copy()
-    items = data["items"].copy()
+    backpack = data["backpack"].copy()
 
     random.shuffle(professions)
     random.shuffle(ages)
-    random.shuffle(items)
+    random.shuffle(backpack)
 
     for name in player_names:
         player = {
@@ -19,7 +19,8 @@ def generate_players(player_names, data):
             "health": random.choice(data["health"]),
             "profession": professions.pop() if professions else "Без професії",
             "age": ages.pop() if ages else "Невідомий",
-            "item": items.pop() if items else "Порожньо"
+            "backpack": backpack.pop() if backpack else "Порожньо",
+            "backpack2": backpack.pop() if backpack else "Порожньо"
         }
         players.append(player)
 
@@ -36,17 +37,17 @@ def save_player_files(players):
             f.write(f"Вік: {player['age']}\n")
             f.write(f"Здоров'я: {player['health']}\n")
             f.write(f"Професія: {player['profession']}\n")
-            f.write(f"Інвентар: {player['item']}\n")
+            f.write(f"Наплічник: {player['backpack']}" + " i " + f"{player['backpack2']}\n")
 
-    print("✅ Згенеровані файли для кожного гравця в папці 'players'.")
+    print("Згенеровані файли для кожного гравця в папці 'players'.")
 
 def generate_bunker(data):
     cataclysm = random.choice(data["cataclysms"])
     description = random.choice(data["descriptions"])
     bunker_items = random.sample(data["bunker_items"], 3)
 
-    size = random.randint(50, 500)  # м²
-    time = random.randint(6, 36)    # місяців
+    size = random.randint(21, 500)  # м²
+    time = random.randint(9, 41)    # місяців
     food = random.randint(3, 24)    # на скільки місяців вистачить
     water = random.randint(3, 24)
 
@@ -59,10 +60,10 @@ def generate_bunker(data):
         f.write(f"Їжа: вистачить на {food} місяців\n")
         f.write(f"Вода: вистачить на {water} місяців\n")
 
-    print("✅ Згенеровано bunker.txt")
+    print("Згенеровано bunker.txt")
 
 def main():
-    print("Введіть імена гравців через кому (наприклад: Лєра, Макс, Нікіта):")
+    print("Введіть імена гравців через кому")
     names_input = input("> ")
     player_names = [name.strip() for name in names_input.split(",") if name.strip()]
 
