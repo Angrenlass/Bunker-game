@@ -2,7 +2,7 @@ import json
 import random
 import os
 
-def generate_players(num_players, data):
+def generate_players(player_names, data):
     players = []
 
     # робимо копії для унікальних характеристик
@@ -14,9 +14,9 @@ def generate_players(num_players, data):
     random.shuffle(ages)
     random.shuffle(items)
 
-    for i in range(num_players):
+    for name in player_names:
         player = {
-            "id": i + 1,
+            "name": name.strip(),
             "health": random.choice(data["health"]),  # може повторюватися
             "profession": professions.pop() if professions else "Без професії",
             "age": ages.pop() if ages else "Невідомий",
@@ -27,28 +27,29 @@ def generate_players(num_players, data):
     return players
 
 def save_player_files(players):
-    # створюємо папку, щоб файли були окремо
     if not os.path.exists("players"):
         os.makedirs("players")
 
     for player in players:
-        filename = f"players/player{player['id']}.txt"
+        filename = f"players/{player['name']}.txt"
         with open(filename, "w", encoding="utf-8") as f:
-            f.write(f"Гравець {player['id']}\n")
+            f.write(f"Гравець: {player['name']}\n")
             f.write(f"Вік: {player['age']}\n")
             f.write(f"Здоров'я: {player['health']}\n")
             f.write(f"Професія: {player['profession']}\n")
             f.write(f"Інвентар: {player['item']}\n")
 
-    print("✅ Згенеровані файли для кожного гравця в папці 'players'.")
+    print("Згенеровані файли для кожного гравця в папці 'players'.")
 
 def main():
-    num_players = int(input("Введіть кількість гравців: "))
+    print("Введіть імена гравців через кому:")
+    names_input = input("> ")
+    player_names = [name.strip() for name in names_input.split(",") if name.strip()]
 
     with open("data.json", "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    players = generate_players(num_players, data)
+    players = generate_players(player_names, data)
     save_player_files(players)
 
 if __name__ == "__main__":
