@@ -140,11 +140,10 @@ def interactive_loop(state, data):
             if len(parts) < 2:
                 print("Ім'я: add <name> або addmulti <name> N")
                 continue
-            # витягуємо імя з повного рядка
             rest = cmd[len(action):].strip()
-            # support quotes
+
+            # підтримка імен у лапках
             if rest.startswith('"') or rest.startswith("'"):
-                # знайти закриваючу кавичку
                 quote = rest[0]
                 end_idx = rest.find(quote, 1)
                 if end_idx == -1:
@@ -165,7 +164,6 @@ def interactive_loop(state, data):
             if action == "add":
                 count = 1
             else:
-                # addmulti
                 try:
                     count = int(after.split()[0])
                 except Exception:
@@ -182,14 +180,23 @@ def interactive_loop(state, data):
                 added.append(item)
 
             if added:
-                print(f"Предмет додано")
-                # оновити файл гравця
-                fname = os.path.join(PLAYERS_DIR, f"{sanitize_filename(name)}.txt")
-                with open(fname, "a", encoding="utf-8") as f:
+                if action == "add":
+                    filename = f"{sanitize_filename(name)}_Предмет.txt"
+                else:
+                    filename = f"{sanitize_filename(name)}_{len(added)}_Предметів.txt"
+
+                item_path = os.path.join(PLAYERS_DIR, filename)
+                with open(item_path, "w", encoding="utf-8") as item_file:
+                    item_file.write(f"Гравець: {name}\n")
+                    item_file.write("Отримано предмети:\n")
                     for it in added:
-                        f.write(f" - {it}\n")
+                        item_file.write(f" - {it}\n")
+
+                print(f"Створено файл: {filename}")
                 save_state(state)
             continue
+
+
 
         if action == "regen":
             if len(parts) < 2:
@@ -200,11 +207,9 @@ def interactive_loop(state, data):
             if not player:
                 print("Гравця з таким іменем немає.")
                 continue
-            # повернемо старі предмети в pool? НІ — ми їх просто знищуємо (щоб уникнути дублювання логіки).
-            # Якщо хочеш — можна змінити, щоб вони повертались.
+
             player["backpack"] = []
-            # беремо items_per_player з поточного state або default 3
-            items_per_player = state.get("items_per_player", 2)
+            items_per_player = 2  # 🔹 фіксуємо 2 предмети
             added = []
             for _ in range(items_per_player):
                 if not state["pool"]:
@@ -212,22 +217,23 @@ def interactive_loop(state, data):
                 item = state["pool"].pop()
                 player["backpack"].append(item)
                 added.append(item)
-            # перезапис файлу
-            fname = os.path.join(PLAYERS_DIR, f"{sanitize_filename(name)}.txt")
-            with open(fname, "w", encoding="utf-8") as f:
-                # f.write(f"Гравець: {player['name']}\n")
-                # f.write(f"Вік: {player['age']}\n")
-                # f.write(f"Здоров'я: {player['health']}\n")
-                # f.write(f"Професія: {player['profession']}\n")
-                f.write("Рюкзак:\n")
-                if player["backpack"]:
-                    for it in player["backpack"]:
+
+            # створюємо окремий файл для регенерації
+            regen_filename = f"{sanitize_filename(name)}_backpack_regen.txt"
+            regen_path = os.path.join(PLAYERS_DIR, regen_filename)
+            with open(regen_path, "w", encoding="utf-8") as f:
+                f.write(f"Гравець: {name}\n")
+                f.write("Новий рюкзак:\n")
+                if added:
+                    for it in added:
                         f.write(f" - {it}\n")
                 else:
                     f.write(" - (порожньо)\n")
+
             save_state(state)
-            print(f"Рюкзак {name} перегенерований, додано {len(added)} предметів.")
+            print(f"Рюкзак {name} перегенерований, створено файл {regen_filename}")
             continue
+
 
         # if action == "show":
         #     if len(parts) < 2:
