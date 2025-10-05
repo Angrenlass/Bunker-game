@@ -35,30 +35,47 @@ def load_state():
 
 # генерація гравців та бункера
 def generate_players(player_names, data, items_per_player=2):
-    # pool копія з data["backpack_items"]
-    pool = data["backpack"].copy()
-    random.shuffle(pool)
+    # backpack_pool копія з data["backpack_items"]
+    backpack_pool = data["backpack"].copy()
+    random.shuffle(backpack_pool)
+
+    health_pool = data.get("health").copy()
+    random.shuffle(health_pool)
+
+    jobs_pool = data.get("jobs").copy()
+    random.shuffle(jobs_pool)
 
     players = {}
     for name in player_names:
         name = name.strip()
         # призначаємо items_per_player унікальних предметів (якщо вистачає)
         items = []
+
+        if health_pool:
+            health = health_pool.pop()
+        else:
+            health = random.choice(data.get("health"))
+
+        if jobs_pool:
+            job = jobs_pool.pop()
+        else:
+            job = random.choice(data.get("jobs"))
+
         for _ in range(items_per_player):
-            if pool:
-                items.append(pool.pop())
+            if backpack_pool:
+                items.append(backpack_pool.pop())
             else:
                 break
         player = {
             "name": name,
-            "health": random.choice(data.get("health", ["Здоровий"])),
-            "profession": (data.get("professions", []) or ["Без професії"]).pop() if data.get("professions") else "Без професії",
+            "health": health,
+            "profession": job,
             "age": random.choice(data.get("ages", ["Невідомий"])),
             "backpack": items
         }
         players[name] = player
 
-    return players, pool
+    return players, backpack_pool, health_pool, jobs_pool
 
 def save_player_files(players):
     ensure_players_dir()
@@ -131,12 +148,7 @@ def interactive_loop(state, data):
 """)
             continue
 
-        if action == "list":
-            for name, p in state["players"].items():
-                print(f"- {name}: {len(p.get('backpack', []))} предметів")
-            continue
-
-        if action == "add" or action == "addmulti":
+        if action == "add_backpack" or action == "addmulti_backpack":
             if len(parts) < 2:
                 print("Ім'я: add <name> або addmulti <name> N")
                 continue
@@ -161,7 +173,7 @@ def interactive_loop(state, data):
                 print("Гравця з таким іменем немає.")
                 continue
 
-            if action == "add":
+            if action == "add_backpack":
                 count = 1
             else:
                 try:
@@ -172,15 +184,15 @@ def interactive_loop(state, data):
 
             added = []
             for _ in range(count):
-                if not state["pool"]:
+                if not state["backpack_pool"]:
                     print("Пул вичерпано — немає більше предметів для видачі.")
                     break
-                item = state["pool"].pop()
+                item = state["backpack_pool"].pop()
                 player["backpack"].append(item)
                 added.append(item)
 
             if added:
-                if action == "add":
+                if action == "add_backpack":
                     filename = f"{sanitize_filename(name)}_Предмет.txt"
                 else:
                     filename = f"{sanitize_filename(name)}_{len(added)}_Предметів.txt"
@@ -196,8 +208,6 @@ def interactive_loop(state, data):
                 save_state(state)
             continue
 
-
-
         if action == "regen":
             if len(parts) < 2:
                 print("Вкажи ім'я: regen <name>")
@@ -212,9 +222,9 @@ def interactive_loop(state, data):
             items_per_player = 2  # 🔹 фіксуємо 2 предмети
             added = []
             for _ in range(items_per_player):
-                if not state["pool"]:
+                if not state["backpack_pool"]:
                     break
-                item = state["pool"].pop()
+                item = state["backpack_pool"].pop()
                 player["backpack"].append(item)
                 added.append(item)
 
@@ -234,6 +244,10 @@ def interactive_loop(state, data):
             print(f"Рюкзак {name} перегенерований, створено файл {regen_filename}")
             continue
 
+        # if action == "list":
+        #     for name, p in state["players"].items():
+        #         print(f"- {name}: {len(p.get('backpack', []))} предметів")
+        #     continue
 
         # if action == "show":
         #     if len(parts) < 2:
@@ -253,8 +267,8 @@ def interactive_loop(state, data):
         #             print(" - (порожньо)")
         #     continue
 
-        # if action == "pool":
-        #     print(f"У пулі залишилось {len(state['pool'])} предметів.")
+        # if action == "backpack_pool":
+        #     print(f"У пулі залишилось {len(state['backpack_pool'])} предметів.")
         #     continue
 
         # if action == "save":
@@ -290,7 +304,7 @@ def main():
 
     items_per_player = 2
     # можна дати можливість ввести іншу кількість, але поки default
-    players, pool = generate_players(player_names, data, items_per_player=items_per_player)
+    players, backpack_pool, health_pool, jobs_pool = generate_players(player_names, data, items_per_player=items_per_player)
 
     # записуємо початкові файли
     save_player_files(players)
@@ -299,7 +313,9 @@ def main():
     # state зберігаємо на диск
     state = {
         "players": players,   # dict name -> player
-        "pool": pool,         # list доступних айтемів (використовуємо pop() з кінця)
+        "backpack_pool": backpack_pool,         # list доступних айтемів (використовуємо pop() з кінця)
+        "health_pool": health_pool,
+        "jobs_pool": jobs_pool,
         "items_per_player": items_per_player
     }
     save_state(state)
