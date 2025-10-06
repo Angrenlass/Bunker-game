@@ -34,7 +34,7 @@ def load_state():
     return None
 
 # генерація гравців та бункера
-def generate_players(player_names, data, items_per_player=2):
+def generate_players(player_names, data, items_per_player=2, cards_per_player=2):
     # backpack_pool копія з data["backpack_items"]
     backpack_pool = data["backpack"].copy()
     random.shuffle(backpack_pool)
@@ -45,11 +45,15 @@ def generate_players(player_names, data, items_per_player=2):
     jobs_pool = data.get("jobs").copy()
     random.shuffle(jobs_pool)
 
+    cards_pool = data.get("special_cards").copy()
+    random.shuffle(cards_pool)
+
     players = {}
     for name in player_names:
         name = name.strip()
         # призначаємо items_per_player унікальних предметів (якщо вистачає)
         items = []
+        cards = []
 
         if health_pool:
             health = health_pool.pop()
@@ -66,16 +70,23 @@ def generate_players(player_names, data, items_per_player=2):
                 items.append(backpack_pool.pop())
             else:
                 break
+
+        for _ in range(cards_per_player):
+            if cards_pool:
+                cards.append(cards_pool.pop())
+            else:
+                break
         player = {
             "name": name,
             "health": health,
             "profession": job,
             "age": random.choice(data.get("ages", ["Невідомий"])),
-            "backpack": items
+            "backpack": items,
+            "special_cards": cards
         }
         players[name] = player
 
-    return players, backpack_pool, health_pool, jobs_pool
+    return players, backpack_pool, health_pool, jobs_pool, cards_pool
 
 def save_player_files(players):
     ensure_players_dir()
@@ -86,12 +97,14 @@ def save_player_files(players):
             f.write(f"Вік: {player['age']}\n")
             f.write(f"Здоров'я: {player['health']}\n")
             f.write(f"Професія: {player['profession']}\n")
-            f.write("Рюкзак:\n")
-            if player["backpack"]:
-                for it in player["backpack"]:
-                    f.write(f" - {it}\n")
-            else:
-                f.write(" - (порожньо)\n")
+            f.write(f"Рюкзак:{player['backpack']}\n")
+            f.write(f"Спеціальні Картки:{player['special_cards']}\n")
+
+            # if player["backpack"]:
+            #     for it in player["backpack"]:
+            #         f.write(f" - {it}\n")
+            # else:
+            #     f.write(" - (порожньо)\n")
 
 def generate_bunker(data):
     ensure_players_dir()
@@ -303,8 +316,9 @@ def main():
     player_names = [name.strip() for name in names_input.split(",") if name.strip()]
 
     items_per_player = 2
+    cards_per_player = 2
     # можна дати можливість ввести іншу кількість, але поки default
-    players, backpack_pool, health_pool, jobs_pool = generate_players(player_names, data, items_per_player=items_per_player)
+    players, backpack_pool, health_pool, jobs_pool, cards_pool = generate_players(player_names, data, items_per_player=items_per_player, cards_per_player=cards_per_player)
 
     # записуємо початкові файли
     save_player_files(players)
@@ -316,7 +330,9 @@ def main():
         "backpack_pool": backpack_pool,         # list доступних айтемів (використовуємо pop() з кінця)
         "health_pool": health_pool,
         "jobs_pool": jobs_pool,
-        "items_per_player": items_per_player
+        "cards_pool": cards_pool,
+        "items_per_player": items_per_player,
+        "cards_per_player": cards_per_player
     }
     save_state(state)
     print("Генерація завершена.")
