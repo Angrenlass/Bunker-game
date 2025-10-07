@@ -214,5 +214,17 @@
     "Радіоприймач",
     "Інструменти",
     "Карта місцевості"
+  ],
+  "special_cards" : [
+    "Placeholder_1",
+    "Placeholder_2",
+    "Placeholder_3",
+    "Placeholder_4",
+    "Placeholder_5",
+    "Placeholder_6",
+    "Placeholder_7",
+    "Placeholder8_",
+    "Placeholder9_",
+    "Placeholder_10"
   ]
 }
