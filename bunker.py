@@ -33,33 +33,69 @@ def load_state():
             return json.load(f)
     return None
 
+# Генерація професії зі стажем
+def assign_job_with_experience(jobs_pool):
+    if not jobs_pool:
+        return "Безробітній"
+    job = jobs_pool.pop()  # Щоб не повторювались
+    experience_years = random.randint(0, 5)
+    if experience_years == 0:
+        exp_text = "Новачок"
+    elif experience_years == 1:
+        exp_text = "Дилетант"
+    elif experience_years == 2:
+        exp_text = "Практикуючий"
+    elif experience_years == 3:
+        exp_text = "Досвідчений"
+    elif experience_years == 4:
+        exp_text = "Професіонал"
+    elif experience_years == 5:
+        exp_text = "Експерт"
+    else:
+        exp_text = f"{experience_years} років досвіду"
+    return f"{exp_text} {job}"
+
+def assign_disease_with_stage(health_pool, data, used_health):
+    health_pool = data.get("health", [])
+    health_with_stages = data.get("health_with_stages", {})
+
+    # Об'єнуємо декілька словників
+    all_health = (
+        [h for h in health_pool if h not in used_health] +
+        [d for d in health_with_stages.keys() if d not in used_health]
+    )
+
+    if not all_health:
+        return "-" 
+
+    health = random.choice(all_health)
+
+    if health in health_with_stages:
+        used_health.add(health)
+        stage = random.choice(health_with_stages[health])
+        return f"{health} ({stage})"
+    else:
+        used_health.add(health)
+        return health
+
 # генерація гравців та бункера
 def generate_players(player_names, data, items_per_player=2):
-    # backpack_pool копія з data["backpack_items"]
+    health_pool = data.get("health", []).copy()
+    random.shuffle(health_pool)
+
+    jobs_pool = data.get("jobs", []).copy()
+    random.shuffle(jobs_pool)
+
     backpack_pool = data["backpack"].copy()
     random.shuffle(backpack_pool)
 
-    health_pool = data.get("health").copy()
-    random.shuffle(health_pool)
-
-    jobs_pool = data.get("jobs").copy()
-    random.shuffle(jobs_pool)
+    used_health = set()
 
     players = {}
     for name in player_names:
         name = name.strip()
         # призначаємо items_per_player унікальних предметів (якщо вистачає)
         items = []
-
-        if health_pool:
-            health = health_pool.pop()
-        else:
-            health = random.choice(data.get("health"))
-
-        if jobs_pool:
-            job = jobs_pool.pop()
-        else:
-            job = random.choice(data.get("jobs"))
 
         for _ in range(items_per_player):
             if backpack_pool:
@@ -68,8 +104,8 @@ def generate_players(player_names, data, items_per_player=2):
                 break
         player = {
             "name": name,
-            "health": health,
-            "profession": job,
+            "health": assign_disease_with_stage(health_pool, data, used_health),
+            "job": assign_job_with_experience(jobs_pool),
             "age": random.choice(data.get("ages", ["Невідомий"])),
             "backpack": items
         }
@@ -85,7 +121,7 @@ def save_player_files(players):
             f.write(f"Гравець: {player['name']}\n")
             f.write(f"Вік: {player['age']}\n")
             f.write(f"Здоров'я: {player['health']}\n")
-            f.write(f"Професія: {player['profession']}\n")
+            f.write(f"Професія: {player['job']}\n")
             f.write("Рюкзак:\n")
             if player["backpack"]:
                 for it in player["backpack"]:
@@ -277,9 +313,8 @@ def interactive_loop(state, data):
         #     continue
 
         print("Невідома команда. Введи 'help' для підказки.")
-    # кінець loop
 
-# ---- стартова логіка ----
+# стартова логіка
 def main():
     if not os.path.exists(DATA_FILE):
         print(f"Не знайдено {DATA_FILE}. Створи файл з даними (backpack_items тощо).")
