@@ -134,8 +134,13 @@ def save_player_files(players):
             f.write(f"Вік: {player['age']}\n")
             f.write(f"Здоров'я: {player['health']}\n")
             f.write(f"Професія: {player['job']}\n")
-            f.write(f"Рюкзак:{player['backpack']}\n")
-            f.write(f"Спеціальні Картки:{player['special_cards']}\n")
+
+            #Fix formating:
+            backpack_str = ", ".join(player['backpack']) if player['backpack'] else "—"
+            special_cards_str = ", ".join(player['special_cards']) if player['special_cards'] else "—"
+
+            f.write(f"Рюкзак: {backpack_str}\n")
+            f.write(f"Спеціальні картки: {special_cards_str}\n")
 
 def generate_bunker(data):
     ensure_players_dir()
