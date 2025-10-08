@@ -90,6 +90,12 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
     jobs_pool = data.get("jobs", []).copy()
     random.shuffle(jobs_pool)
 
+    fobias_pool = data.get("fobias", []).copy()
+    random.shuffle(fobias_pool)
+
+    hobies_pool = data.get("hobies", []).copy()
+    random.shuffle(hobies_pool)
+
     used_health = set()
     
     cards_pool = data.get("special_cards").copy()
@@ -118,12 +124,14 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
             "health": assign_disease_with_stage(health_pool, data, used_health),
             "job": assign_job_with_experience(jobs_pool),
             "age": random.choice(data.get("ages", ["Невідомий"])),
+            "fobias": random.choice(data.get("fobias", ["Невідомий"])),
+            "hobies": random.choice(data.get("hobies", ["Невідомий"])),
             "backpack": items,
             "special_cards": cards
         }
         players[name] = player
 
-    return players, backpack_pool, health_pool, jobs_pool, cards_pool
+    return players, backpack_pool, health_pool, jobs_pool, fobias_pool, hobies_pool, cards_pool
 
 def save_player_files(players):
     ensure_players_dir()
@@ -134,6 +142,8 @@ def save_player_files(players):
             f.write(f"Вік: {player['age']}\n")
             f.write(f"Здоров'я: {player['health']}\n")
             f.write(f"Професія: {player['job']}\n")
+            f.write(f"Хобі: {player['hobies']}\n")
+            f.write(f"Фобія: {player['fobias']}\n")
 
             #Fix formating:
             backpack_str = ", ".join(player['backpack']) if player['backpack'] else "—"
@@ -353,7 +363,7 @@ def main():
     items_per_player = 2
     cards_per_player = 2
     # можна дати можливість ввести іншу кількість, але поки default
-    players, backpack_pool, health_pool, jobs_pool, cards_pool = generate_players(player_names, data, items_per_player=items_per_player, cards_per_player=cards_per_player)
+    players, backpack_pool, health_pool, jobs_pool, fobias_pool, hobies_pool, cards_pool = generate_players(player_names, data, items_per_player=items_per_player, cards_per_player=cards_per_player)
 
     # записуємо початкові файли
     save_player_files(players)
@@ -365,6 +375,8 @@ def main():
         "backpack_pool": backpack_pool,         # list доступних айтемів (використовуємо pop() з кінця)
         "health_pool": health_pool,
         "jobs_pool": jobs_pool,
+        "fobias_pool": fobias_pool,
+        "hobies_pool": hobies_pool,
         "cards_pool": cards_pool,
         "items_per_player": items_per_player,
         "cards_per_player": cards_per_player
