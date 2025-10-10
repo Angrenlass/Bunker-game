@@ -140,13 +140,14 @@ def save_player_files(players):
         with open(fname, "w", encoding="utf-8") as f:
             backpack_str = ", ".join(player['backpack']) if player['backpack'] else "—"
             special_cards_str = ", ".join(player['special_cards']) if player['special_cards'] else "—"
+            fobia_level = random.randint(33, 100)
             
             f.write(f"Гравець: {player['name']}\n")
             f.write(f"Вік: {player['age']}\n")
             f.write(f"Здоров'я: {player['health']}\n")
             f.write(f"Професія: {player['job']}\n")
             f.write(f"Хобі: {player['hobies']}\n")
-            f.write(f"Фобія: {player['fobias']}\n")
+            f.write(f"Фобія: {player['fobias']} {fobia_level}% \n")
             f.write(f"Рюкзак: {backpack_str}\n")
             f.write(f"Спеціальні картки: {special_cards_str}\n")
             #Fix formating:
