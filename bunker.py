@@ -124,8 +124,8 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
             "health": assign_disease_with_stage(health_pool, data, used_health),
             "job": assign_job_with_experience(jobs_pool),
             "age": random.choice(data.get("ages", ["Невідомий"])),
-            "fobias": random.choice(data.get("fobias", ["Невідомий"])),
-            "hobies": random.choice(data.get("hobies", ["Невідомий"])),
+            "fobias": fobias_pool.pop(),
+            "hobies": hobies_pool.pop(),
             "backpack": items,
             "special_cards": cards
         }
@@ -138,19 +138,19 @@ def save_player_files(players):
     for player in players.values():
         fname = os.path.join(PLAYERS_DIR, f"{sanitize_filename(player['name'])}.txt")
         with open(fname, "w", encoding="utf-8") as f:
+            backpack_str = ", ".join(player['backpack']) if player['backpack'] else "—"
+            special_cards_str = ", ".join(player['special_cards']) if player['special_cards'] else "—"
+            
             f.write(f"Гравець: {player['name']}\n")
             f.write(f"Вік: {player['age']}\n")
             f.write(f"Здоров'я: {player['health']}\n")
             f.write(f"Професія: {player['job']}\n")
             f.write(f"Хобі: {player['hobies']}\n")
             f.write(f"Фобія: {player['fobias']}\n")
-
-            #Fix formating:
-            backpack_str = ", ".join(player['backpack']) if player['backpack'] else "—"
-            special_cards_str = ", ".join(player['special_cards']) if player['special_cards'] else "—"
-
             f.write(f"Рюкзак: {backpack_str}\n")
             f.write(f"Спеціальні картки: {special_cards_str}\n")
+            #Fix formating:
+
 
 def generate_bunker(data):
     ensure_players_dir()
