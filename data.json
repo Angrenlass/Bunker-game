@@ -22,16 +22,20 @@
     "50"
   ],
   "hobies": [
-    "Placeholder_1", 
-    "Placeholder_2", 
-    "Placeholder_3", 
-    "Placeholder_4",
-    "Placeholder_5",
-    "Placeholder_6",
-    "Placeholder_7",
-    "Placeholder_8",
-    "Placeholder_9",
-    "Placeholder_10"
+    "Шахи", 
+    "Програмування", 
+    "Фарбування аніме фігурок", 
+    "Плавання з дельфінами",
+    "Готування",
+    "Рігбі",
+    "Настільний футбол",
+    "Написання 18+ фанфіків(тільки яой)",
+    "Хобіхорсінг",
+    "Письменництво",
+    "Стрибки з парашутом нам озером з акулами, жонглюючи бензопилами",
+    "Малювання",
+    "Полювання на гриби(якщо повезе, не отруйні)",
+    "ДнД"
   ],
   "fobias": [
     "Placeholder_1", 
@@ -250,5 +254,16 @@
     "Placeholder_8",
     "Placeholder_9",
     "Placeholder_10"
-  ]
+  ],
+  "big_inventory":[
+    "Placeholder_1",
+    "Placeholder_2",
+    "Placeholder_3",
+    "Placeholder_4",
+    "Placeholder_5",
+    "Placeholder_6",
+    "Placeholder_7",
+    "Placeholder_8",
+    "Placeholder_9",
+    "Placeholder_10"]
 }

@@ -96,6 +96,9 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
     hobies_pool = data.get("hobies", []).copy()
     random.shuffle(hobies_pool)
 
+    big_inventory_pool = data.get("big_inventory", []).copy()
+    random.shuffle(hobies_pool)
+
     used_health = set()
     
     cards_pool = data.get("special_cards").copy()
@@ -127,11 +130,12 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
             "fobias": fobias_pool.pop(),
             "hobies": hobies_pool.pop(),
             "backpack": items,
+            "big_inventory": big_inventory_pool.pop(),
             "special_cards": cards
         }
         players[name] = player
 
-    return players, backpack_pool, health_pool, jobs_pool, fobias_pool, hobies_pool, cards_pool
+    return players, backpack_pool, health_pool, jobs_pool, fobias_pool, hobies_pool, big_inventory_pool, cards_pool
 
 def save_player_files(players):
     ensure_players_dir()
@@ -147,6 +151,7 @@ def save_player_files(players):
             f.write(f"Професія: {player['job']}\n")
             f.write(f"Хобі: {player['hobies']}\n")
             f.write(f"Фобія: {player['fobias']}\n")
+            f.write(f"Великий інвентар: {player['big_inventory']}\n")
             f.write(f"Рюкзак: {backpack_str}\n")
             f.write(f"Спеціальні картки: {special_cards_str}\n")
             #Fix formating:
@@ -363,7 +368,7 @@ def main():
     items_per_player = 2
     cards_per_player = 2
     # можна дати можливість ввести іншу кількість, але поки default
-    players, backpack_pool, health_pool, jobs_pool, fobias_pool, hobies_pool, cards_pool = generate_players(player_names, data, items_per_player=items_per_player, cards_per_player=cards_per_player)
+    players, backpack_pool, health_pool, jobs_pool, fobias_pool, hobies_pool, big_inventory_pool, cards_pool = generate_players(player_names, data, items_per_player=items_per_player, cards_per_player=cards_per_player)
 
     # записуємо початкові файли
     save_player_files(players)
@@ -377,6 +382,7 @@ def main():
         "jobs_pool": jobs_pool,
         "fobias_pool": fobias_pool,
         "hobies_pool": hobies_pool,
+        "big_inventory_pool": big_inventory_pool,
         "cards_pool": cards_pool,
         "items_per_player": items_per_player,
         "cards_per_player": cards_per_player
