@@ -77,6 +77,19 @@ def assign_disease_with_stage(health_pool, data, used_health):
     else:
         used_health.add(health)
         return health
+    
+def generate_gender():
+    roll = random.random()  # 0.0 - 1.0
+
+    if roll < 0.001:  # 0.1%
+        return "Андроїд"
+    else:
+        return random.choice(["Чоловіча", "Жіноча"])
+    
+def generate_age_and_gender(data):
+    age = random.choice(data.get("ages"))
+    gender = generate_gender()
+    return age, gender
 
 # генерація гравців та бункера
 def generate_players(player_names, data, items_per_player=2, cards_per_player=2):
@@ -108,6 +121,8 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
         items = []
         cards = []
 
+        age, gender = generate_age_and_gender(data)
+
         for _ in range(items_per_player):
             if backpack_pool:
                 items.append(backpack_pool.pop())
@@ -123,7 +138,8 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
             "name": name,
             "health": assign_disease_with_stage(health_pool, data, used_health),
             "job": assign_job_with_experience(jobs_pool),
-            "age": random.choice(data.get("ages", ["Невідомий"])),
+            "age": age,
+            "gender": gender,
             "fobias": fobias_pool.pop(),
             "hobies": hobies_pool.pop(),
             "backpack": items,
@@ -143,7 +159,7 @@ def save_player_files(players):
             fobia_level = random.randint(33, 100)
             
             f.write(f"Гравець: {player['name']}\n")
-            f.write(f"Вік: {player['age']}\n")
+            f.write(f"Стать: {player['gender']} {player['age']} років\n")
             f.write(f"Здоров'я: {player['health']}\n")
             f.write(f"Професія: {player['job']}\n")
             f.write(f"Хобі: {player['hobies']}\n")
