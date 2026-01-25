@@ -97,6 +97,18 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
     backpack_pool = data["backpack"].copy()
     random.shuffle(backpack_pool)
 
+    body_pool = data.get("body_types", []).copy()
+    random.shuffle(body_pool)
+
+    traits_pool = data.get("traits", []).copy()
+    random.shuffle(traits_pool)
+
+    extra_info_pool = data.get("extra_info", []).copy()
+    random.shuffle(extra_info_pool)
+
+    large_inventory_pool = data.get("large_inventory", []).copy()
+    random.shuffle(large_inventory_pool)
+
     health_pool = data.get("health").copy()
     random.shuffle(health_pool)
 
@@ -121,7 +133,18 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
         items = []
         cards = []
 
+        height = random.randint(140, 200)
         age, gender = generate_age_and_gender(data)
+
+        if body_pool:
+            body = body_pool.pop()
+        else:
+            body = "Невідомо"
+
+        if large_inventory_pool:
+            large_item = large_inventory_pool.pop()
+        else:
+            large_item = "Відсутній"
 
         for _ in range(items_per_player):
             if backpack_pool:
@@ -140,14 +163,19 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
             "job": assign_job_with_experience(jobs_pool),
             "age": age,
             "gender": gender,
+            "body": body,
+            "height": height,
             "fobias": fobias_pool.pop(),
             "hobies": hobies_pool.pop(),
             "backpack": items,
+            "large_inventory": large_item,
+            "trait": traits_pool.pop(),
+            "extra_info": extra_info_pool.pop(),
             "special_cards": cards
         }
         players[name] = player
 
-    return players, backpack_pool, health_pool, jobs_pool, fobias_pool, hobies_pool, cards_pool
+    return players, large_inventory_pool, backpack_pool, health_pool, jobs_pool, fobias_pool, hobies_pool, cards_pool, body_pool, extra_info_pool, traits_pool
 
 def save_player_files(players):
     ensure_players_dir()
@@ -165,9 +193,11 @@ def save_player_files(players):
             f.write(f"Хобі: {player['hobies']}\n")
             f.write(f"Фобія: {player['fobias']} {fobia_level}% \n")
             f.write(f"Рюкзак: {backpack_str}\n")
+            f.write(f"Великий інвентар: {player['large_inventory']}\n")
+            f.write(f"Статура: {player['body']} {player['height']} см\n")
+            f.write(f"Риса характеру: {player['trait']}\n")
+            f.write(f"Додаткові відомості: {player['extra_info']}\n")
             f.write(f"Спеціальні картки: {special_cards_str}\n")
-            #Fix formating:
-
 
 def generate_bunker(data):
     ensure_players_dir()
@@ -380,7 +410,7 @@ def main():
     items_per_player = 2
     cards_per_player = 2
     # можна дати можливість ввести іншу кількість, але поки default
-    players, backpack_pool, health_pool, jobs_pool, fobias_pool, hobies_pool, cards_pool = generate_players(player_names, data, items_per_player=items_per_player, cards_per_player=cards_per_player)
+    players, backpack_pool, health_pool, jobs_pool, fobias_pool, hobies_pool, cards_pool, extra_info_pool, body_pool, traits_pool, large_inventory_pool = generate_players(player_names, data, items_per_player=items_per_player, cards_per_player=cards_per_player)
 
     # записуємо початкові файли
     save_player_files(players)
@@ -395,6 +425,10 @@ def main():
         "fobias_pool": fobias_pool,
         "hobies_pool": hobies_pool,
         "cards_pool": cards_pool,
+        "traits_pool": traits_pool,
+        "extra_info_pool": extra_info_pool,
+        "body_pool": body_pool,
+        "large_inventory_pool": large_inventory_pool,
         "items_per_player": items_per_player,
         "cards_per_player": cards_per_player
     }
