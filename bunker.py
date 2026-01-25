@@ -2,6 +2,7 @@ import json
 import random
 import os
 import sys
+import re
 import shutil
 import pathlib
 
@@ -10,12 +11,21 @@ STATE_FILE = os.path.join(PLAYERS_DIR, "state.json")
 DATA_FILE = "data.json"
 
 # допоміжні
+def ensure_players_dir():
+    os.makedirs(PLAYERS_DIR, exist_ok=True)
+
 def sanitize_filename(name):
     # просте санітизування для імен файлів
     return "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).rstrip()
 
-def ensure_players_dir():
-    os.makedirs(PLAYERS_DIR, exist_ok=True)
+def write_player_action(name: str, action: str, lines: list[str]):
+    ensure_players_dir()
+    filename = f"{sanitize_filename(name)}_{action}.txt"
+    path = os.path.join(PLAYERS_DIR, filename)
+
+    with open(path, "a", encoding="utf-8") as f:
+        for line in lines:
+            f.write(line + "\n")
 
 # збереження / завантаження стану
 def load_data():
@@ -142,9 +152,9 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
             body = "Невідомо"
 
         if large_inventory_pool:
-            large_item = large_inventory_pool.pop()
+            large_inventory = large_inventory_pool.pop()
         else:
-            large_item = "Відсутній"
+            large_inventory = "Відсутній"
 
         for _ in range(items_per_player):
             if backpack_pool:
@@ -168,14 +178,14 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
             "fobias": fobias_pool.pop(),
             "hobies": hobies_pool.pop(),
             "backpack": items,
-            "large_inventory": large_item,
+            "large_inventory": large_inventory,
             "trait": traits_pool.pop(),
             "extra_info": extra_info_pool.pop(),
             "special_cards": cards
         }
         players[name] = player
 
-    return players, large_inventory_pool, backpack_pool, health_pool, jobs_pool, fobias_pool, hobies_pool, cards_pool, body_pool, extra_info_pool, traits_pool
+    return players, body_pool, traits_pool, jobs_pool, health_pool, hobies_pool, fobias_pool, large_inventory_pool, backpack_pool, extra_info_pool, cards_pool
 
 def save_player_files(players):
     ensure_players_dir()
@@ -188,14 +198,14 @@ def save_player_files(players):
             
             f.write(f"Гравець: {player['name']}\n")
             f.write(f"Стать: {player['gender']} {player['age']} років\n")
-            f.write(f"Здоров'я: {player['health']}\n")
-            f.write(f"Професія: {player['job']}\n")
-            f.write(f"Хобі: {player['hobies']}\n")
-            f.write(f"Фобія: {player['fobias']} {fobia_level}% \n")
-            f.write(f"Рюкзак: {backpack_str}\n")
-            f.write(f"Великий інвентар: {player['large_inventory']}\n")
             f.write(f"Статура: {player['body']} {player['height']} см\n")
             f.write(f"Риса характеру: {player['trait']}\n")
+            f.write(f"Професія: {player['job']}\n")
+            f.write(f"Здоров'я: {player['health']}\n")
+            f.write(f"Хобі: {player['hobies']}\n")
+            f.write(f"Фобія: {player['fobias']} {fobia_level}% \n")
+            f.write(f"Великий інвентар: {player['large_inventory']}\n")
+            f.write(f"Рюкзак: {backpack_str}\n")
             f.write(f"Додаткові відомості: {player['extra_info']}\n")
             f.write(f"Спеціальні картки: {special_cards_str}\n")
 
@@ -220,14 +230,271 @@ def generate_bunker(data):
         f.write(f"Їжа: вистачить на {food} місяців\n")
         f.write(f"Вода: вистачить на {water} місяців\n")
 
-#інтерактивні команди
+def reroll_player_field(state, name, field, pool_name, *, is_list=False):
+    # робимо іменя регістр-незалежним
+    player_key = None
+    for k in state["players"].keys():
+        if k.lower() == name.lower():
+            player_key = k
+            break
+
+    if not player_key:
+        write_player_action(name, field, ["❌ Гравця не знайдено"])
+        return
+
+    player = state["players"][player_key]
+    pool = state.get(pool_name)
+
+    if not pool:
+        write_player_action(player_key, field, [f"❌ Пул {pool_name} порожній або відсутній"])
+        return
+
+    if is_list:
+        player[field] = []
+        item = pool.pop()
+        player[field].append(item)
+        lines = [f"{field} оновлено:", f" - {item}"]
+    else:
+        item = pool.pop()
+        player[field] = item
+        lines = [f"{field} оновлено:", f" - {item}"]
+
+    save_state(state)
+    write_player_action(player_key, field, lines)
+
+def reroll_health(state, data, name):
+    # регістр-незалежне ім'я
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        write_player_action(name, "health", ["❌ Гравця не знайдено"])
+        return
+
+    player = state["players"][player_key]
+    used = set()
+    player["health"] = assign_disease_with_stage(state["health_pool"], data, used)
+    save_state(state)
+    write_player_action(player_key, "health", [f"Нове здоровʼя: {player['health']}"])
+
+def reroll_body(state, name):
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        write_player_action(name, "body", ["❌ Гравця не знайдено"])
+        return
+
+    player = state["players"][player_key]
+
+    if not state["body_pool"]:
+        write_player_action(player_key, "body", ["❌ body_pool порожній"])
+        return
+
+    body = state["body_pool"].pop()
+    height = random.randint(140, 200)
+    player["body"] = body
+    player["height"] = height
+    save_state(state)
+    write_player_action(player_key, "body", [f"Статура: {body}", f"Зріст: {height} см"])
+
+def add_backpack_items(state, name, count=1):
+    player = state["players"].get(name)
+    if not player:
+        write_player_action(name, "backpack_add", ["❌ Гравця не знайдено"])
+        return
+
+    added = []
+
+    for _ in range(count):
+        if not state["backpack_pool"]:
+            break
+        item = state["backpack_pool"].pop()
+        player["backpack"].append(item)
+        added.append(item)
+
+    save_state(state)
+
+    if added:
+        write_player_action(
+            name,
+            "backpack_add",
+            [f"Додано предмети: {', '.join(added)}"]
+        )
+    else:
+        write_player_action(
+            name,
+            "backpack_add",
+            ["❌ Нічого не додано — пул порожній"]
+        )
+
+def regen_backpack(state, name):
+    """Очищає та перегенерує рюкзак, записує один файл із усіма предметами"""
+    # знайти гравця регістр-незалежно
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        write_player_action(name, "backpack_regen", ["❌ Гравця не знайдено"])
+        return
+
+    player = state["players"][player_key]
+
+    # очищаємо рюкзак
+    player["backpack"] = []
+
+    # генеруємо нові предмети
+    new_items = []
+    for _ in range(state["items_per_player"]):
+        if state["backpack_pool"]:
+            item = state["backpack_pool"].pop()
+            player["backpack"].append(item)
+            new_items.append(item)
+
+    save_state(state)
+
+    # формуємо один лог
+    if not new_items:
+        lines = ["❌ Нічого не додано — пул порожній"]
+    else:
+        lines = ["🎒 Рюкзак очищено та перегенеровано:"]
+        for item in new_items:
+            lines.append(f" - {item}")
+
+    write_player_action(player_key, "backpack_regen", lines)
+
+
+def reroll_large_inventory(state, name):
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        write_player_action(name, "large_inventory", ["❌ Гравця не знайдено"])
+        return
+
+    player = state["players"][player_key]
+
+    if not state["large_inventory_pool"]:
+        write_player_action(player_key, "large_inventory", ["❌ Пул порожній"])
+        return
+
+    item = state["large_inventory_pool"].pop()
+    player["large_inventory"] = item
+    save_state(state)
+    write_player_action(player_key, "large_inventory", [f"Великий інвентар: {item}"])
+
+def reroll_age_and_gender(state, data, name):
+    # знайти гравця регістр-незалежно
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        write_player_action(name, "rand_age_gender", ["❌ Гравця не знайдено"])
+        return
+
+    player = state["players"][player_key]
+
+    # генеруємо нові значення
+    age = random.choice(data.get("ages", [18]))
+    gender = generate_gender()
+
+    # оновлюємо стан
+    player["age"] = age
+    player["gender"] = gender
+    save_state(state)
+
+    # записуємо лог
+    write_player_action(player_key, "rand_age_gender", [
+        f"🎲 Новий вік: {age} років",
+        f"🎲 Нова стать: {gender}"
+    ])
+
+def reroll_age(state, data, name):
+    # знайти гравця регістр-незалежно
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        write_player_action(name, "rand_age", ["❌ Гравця не знайдено"])
+        return
+
+    player = state["players"][player_key]
+    age = random.choice(data.get("ages", [18]))
+    player["age"] = age
+    save_state(state)
+    write_player_action(player_key, "rand_age", [f"🎲 Новий вік: {age} років"])
+
+
+def reroll_gender(state, name):
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        write_player_action(name, "rand_gender", ["❌ Гравця не знайдено"])
+        return
+
+    player = state["players"][player_key]
+    gender = generate_gender()
+    player["gender"] = gender
+    save_state(state)
+    write_player_action(player_key, "rand_gender", [f"🎲 Нова стать: {gender}"])
+
+def read_bunker():
+    path = os.path.join(PLAYERS_DIR, "bunker.txt")
+    if not os.path.exists(path):
+        return None
+
+    data = {}
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            if ":" in line:
+                key, value = line.split(":", 1)
+                data[key.strip()] = value.strip()
+    return data
+
+def regen_bunker(data):
+    b = read_bunker()
+    if not b:
+        print("❌ Бункер не знайдено")
+        return
+
+    b["Опис бункера"] = random.choice(data.get("descriptions", ["Опис відсутній"]))
+    b["Інвентар бункера"] = ", ".join(
+        random.sample(
+            data.get("bunker_items", []),
+            min(3, len(data.get("bunker_items", [])))
+        )
+    )
+    b["Розмір"] = f"{random.randint(50, 500)} м²"
+    b["Час перебування"] = f"{random.randint(6, 36)} місяців"
+    b["Їжа"] = f"вистачить на {random.randint(3, 24)} місяців"
+    b["Вода"] = f"вистачить на {random.randint(3, 24)} місяців"
+
+    write_bunker(b)
+
+def regen_cataclysm(data):
+    b = read_bunker()
+    if not b:
+        print("❌ Бункер не знайдено")
+        return
+
+    b["Катаклізм"] = random.choice(
+        data.get("cataclysms", ["Невідомий катаклізм"])
+    )
+
+    write_bunker(b)
+
+def write_bunker(b):
+    path = os.path.join(PLAYERS_DIR, "bunker.txt")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"Катаклізм: {b['Катаклізм']}\n")
+        f.write(f"Опис бункера: {b['Опис бункера']}\n")
+        f.write(f"Інвентар бункера: {b['Інвентар бункера']}\n")
+        f.write(f"Розмір: {b['Розмір']}\n")
+        f.write(f"Час перебування: {b['Час перебування']}\n")
+        f.write(f"Їжа: {b['Їжа']}\n")
+        f.write(f"Вода: {b['Вода']}\n")
+
+def write_player_log(name, lines):
+    ensure_players_dir()
+    path = os.path.join(PLAYERS_DIR, f"{sanitize_filename(name)}_log.txt")
+    with open(path, "a", encoding="utf-8") as f:
+        for line in lines:
+            f.write(line + "\n")
+
 def interactive_loop(state, data):
-    print("\nАдмін панель:\n")
+    print("\n🛠 Адмін панель (help — список команд)\n")
+
     while True:
         try:
             cmd = input("> ").strip()
         except (EOFError, KeyboardInterrupt):
-            print("\nВихід...")
             save_state(state)
             break
 
@@ -239,150 +506,80 @@ def interactive_loop(state, data):
 
         if action in ("exit", "quit"):
             save_state(state)
-            print("Завершую сесію...")
             break
 
         if action == "help":
             print("""
-Доступні команди:
-  help                     — показати цю підказку
-  list                     — показати всіх гравців і кількість предметів у рюкзаку
-  add <name>               — додати 1 випадковий айтем у рюкзак гравця (бракує — мисливість)
-  addmulti <name> N       — додати N айтемів (N число)
-  regen <name>             — перегенерувати рюкзак гравця (витрачає айтеми з пулу)
-  exit / quit              — зберегти та вийти
+health <name>
+body <name>
+trait <name>
+hobby <name>
+fobia <name>
+extra <name>
+job <name>
+large <name>
+
+add backpack <name> [N]
+regen backpack <name>
+
+bunker
+exit
 """)
             continue
 
-        if action == "add_backpack" or action == "addmulti_backpack":
-            if len(parts) < 2:
-                print("Ім'я: add <name> або addmulti <name> N")
-                continue
-            rest = cmd[len(action):].strip()
+        # --- гравець ---
+        if len(parts) >= 2:
+            name = parts[-1]
 
-            # підтримка імен у лапках
-            if rest.startswith('"') or rest.startswith("'"):
-                quote = rest[0]
-                end_idx = rest.find(quote, 1)
-                if end_idx == -1:
-                    print("Неправильний формат імені.")
-                    continue
-                name = rest[1:end_idx]
-                after = rest[end_idx+1:].strip()
-            else:
-                tokens = rest.split()
-                name = tokens[0]
-                after = " ".join(tokens[1:]).strip()
+        if action == "health":
+            reroll_health(state, data, name)
 
-            player = state["players"].get(name)
-            if not player:
-                print("Гравця з таким іменем немає.")
-                continue
+        elif action == "body":
+            reroll_body(state, name)
 
-            if action == "add_backpack":
-                count = 1
-            else:
-                try:
-                    count = int(after.split()[0])
-                except Exception:
-                    print("Вкажи кількість для addmulti: addmulti <name> N")
-                    continue
+        elif action == "trait":
+            reroll_player_field(state, name, "trait", "traits_pool")
 
-            added = []
-            for _ in range(count):
-                if not state["backpack_pool"]:
-                    print("Пул вичерпано — немає більше предметів для видачі.")
-                    break
-                item = state["backpack_pool"].pop()
-                player["backpack"].append(item)
-                added.append(item)
+        elif action == "hobby":
+            reroll_player_field(state, name, "hobies", "hobies_pool")
 
-            if added:
-                if action == "add_backpack":
-                    filename = f"{sanitize_filename(name)}_Предмет.txt"
-                else:
-                    filename = f"{sanitize_filename(name)}_{len(added)}_Предметів.txt"
+        elif action == "fobia":
+            reroll_player_field(state, name, "fobias", "fobias_pool")
 
-                item_path = os.path.join(PLAYERS_DIR, filename)
-                with open(item_path, "w", encoding="utf-8") as item_file:
-                    item_file.write(f"Гравець: {name}\n")
-                    item_file.write("Отримано предмети:\n")
-                    for it in added:
-                        item_file.write(f" - {it}\n")
+        elif action == "extra":
+            reroll_player_field(state, name, "extra_info", "extra_info_pool")
 
-                print(f"Створено файл: {filename}")
-                save_state(state)
-            continue
+        elif action == "job":
+            reroll_player_field(state, name, "job", "jobs_pool")
 
-        if action == "regen":
-            if len(parts) < 2:
-                print("Вкажи ім'я: regen <name>")
-                continue
-            name = cmd[len("regen "):].strip()
-            player = state["players"].get(name)
-            if not player:
-                print("Гравця з таким іменем немає.")
-                continue
+        elif action == "large":
+            reroll_large_inventory(state, name)
 
-            player["backpack"] = []
-            items_per_player = 2  # 🔹 фіксуємо 2 предмети
-            added = []
-            for _ in range(items_per_player):
-                if not state["backpack_pool"]:
-                    break
-                item = state["backpack_pool"].pop()
-                player["backpack"].append(item)
-                added.append(item)
+        elif action == "add" and parts[1] == "backpack":
+            name = parts[2]
+            count = int(parts[3]) if len(parts) > 3 else 1
+            add_backpack_items(state, name, count)
 
-            # створюємо окремий файл для регенерації
-            regen_filename = f"{sanitize_filename(name)}_backpack_regen.txt"
-            regen_path = os.path.join(PLAYERS_DIR, regen_filename)
-            with open(regen_path, "w", encoding="utf-8") as f:
-                f.write(f"Гравець: {name}\n")
-                f.write("Новий рюкзак:\n")
-                if added:
-                    for it in added:
-                        f.write(f" - {it}\n")
-                else:
-                    f.write(" - (порожньо)\n")
+        elif action == "regen" and parts[1] == "backpack":
+            regen_backpack(state, name)
 
-            save_state(state)
-            print(f"Рюкзак {name} перегенерований, створено файл {regen_filename}")
-            continue
+        elif action == "agegender":
+            reroll_age_and_gender(state, data, name)
 
-        # if action == "list":
-        #     for name, p in state["players"].items():
-        #         print(f"- {name}: {len(p.get('backpack', []))} предметів")
-        #     continue
+        elif action == "age":
+            reroll_age(state, data, name)
 
-        # if action == "show":
-        #     if len(parts) < 2:
-        #         print("Вкажи ім'я: show <name>")
-        #         continue
-        #     name = cmd[len("show "):].strip()
-        #     player = state["players"].get(name)
-        #     if not player:
-        #         print("Гравець не знайдений.")
-        #     else:
-        #         print(f"Гравець: {name}")
-        #         print("Рюкзак:")
-        #         if player["backpack"]:
-        #             for it in player["backpack"]:
-        #                 print(" -", it)
-        #         else:
-        #             print(" - (порожньо)")
-        #     continue
+        elif action == "gender":
+            reroll_gender(state, name)
 
-        # if action == "backpack_pool":
-        #     print(f"У пулі залишилось {len(state['backpack_pool'])} предметів.")
-        #     continue
+        elif action == "regen" and parts[1] == "bunker":
+            regen_bunker(data)
 
-        # if action == "save":
-        #     save_state(state)
-        #     print("Saved.")
-        #     continue
+        elif action == "regen" and parts[1] == "cataclysm":
+            regen_cataclysm(data)
 
-        print("Невідома команда. Введи 'help' для підказки.")
+        else:
+            print("❓ Невідома команда")
 
 # стартова логіка
 def main():
@@ -410,7 +607,7 @@ def main():
     items_per_player = 2
     cards_per_player = 2
     # можна дати можливість ввести іншу кількість, але поки default
-    players, backpack_pool, health_pool, jobs_pool, fobias_pool, hobies_pool, cards_pool, extra_info_pool, body_pool, traits_pool, large_inventory_pool = generate_players(player_names, data, items_per_player=items_per_player, cards_per_player=cards_per_player)
+    players, body_pool, traits_pool, jobs_pool, health_pool, hobies_pool, fobias_pool, large_inventory_pool, backpack_pool, extra_info_pool, cards_pool = generate_players(player_names, data, items_per_player=items_per_player, cards_per_player=cards_per_player)
 
     # записуємо початкові файли
     save_player_files(players)
@@ -419,16 +616,16 @@ def main():
     # state зберігаємо на диск
     state = {
         "players": players,   # dict name -> player
-        "backpack_pool": backpack_pool,         # list доступних айтемів (використовуємо pop() з кінця)
-        "health_pool": health_pool,
-        "jobs_pool": jobs_pool,
-        "fobias_pool": fobias_pool,
-        "hobies_pool": hobies_pool,
-        "cards_pool": cards_pool,
-        "traits_pool": traits_pool,
-        "extra_info_pool": extra_info_pool,
         "body_pool": body_pool,
+        "traits_pool": traits_pool,
+        "jobs_pool": jobs_pool,
+        "health_pool": health_pool,
+        "hobies_pool": hobies_pool,         # list доступних айтемів (використовуємо pop() з кінця)
+        "fobias_pool": fobias_pool,
         "large_inventory_pool": large_inventory_pool,
+        "backpack_pool": backpack_pool,
+        "extra_info_pool": extra_info_pool,
+        "cards_pool": cards_pool,
         "items_per_player": items_per_player,
         "cards_per_player": cards_per_player
     }
