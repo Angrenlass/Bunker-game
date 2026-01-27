@@ -192,13 +192,21 @@ def save_player_files(players):
     for player in players.values():
         fname = os.path.join(PLAYERS_DIR, f"{sanitize_filename(player['name'])}.txt")
         with open(fname, "w", encoding="utf-8") as f:
-            backpack_str = ", ".join(player['backpack']) if player['backpack'] else "—"
-            special_cards_str = ", ".join(player['special_cards']) if player['special_cards'] else "—"
+            backpack_str = (
+                "\n - " + "\n - ".join(player['backpack'])
+                if player['backpack']
+                else " —"
+            )
+            special_cards_str = (
+                "\n - " + "\n - ".join(player['special_cards'])
+                if player['special_cards']
+                else " —"
+                )
             fobia_level = random.randint(33, 100)
             
             f.write(f"Гравець: {player['name']}\n")
-            f.write(f"Стать: {player['gender']} {player['age']} років\n")
-            f.write(f"Статура: {player['body']} {player['height']} см\n")
+            f.write(f"Стать: {player['gender']}, {player['age']} років\n")
+            f.write(f"Статура: {player['body']}, {player['height']} см\n")
             f.write(f"Риса характеру: {player['trait']}\n")
             f.write(f"Професія: {player['job']}\n")
             f.write(f"Здоров'я: {player['health']}\n")
