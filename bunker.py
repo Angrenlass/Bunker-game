@@ -50,17 +50,17 @@ def assign_job_with_experience(jobs_pool):
     job = jobs_pool.pop()  # Щоб не повторювались
     experience_years = random.randint(0, 5)
     if experience_years == 0:
-        exp_text = "Новачок"
+        exp_text = "новачок"
     elif experience_years == 1:
-        exp_text = "Дилетант"
+        exp_text = "дилетант"
     elif experience_years == 2:
-        exp_text = "Практикуючий"
+        exp_text = "практикуючий"
     elif experience_years == 3:
-        exp_text = "Досвідчений"
+        exp_text = "досвідчений"
     elif experience_years == 4:
-        exp_text = "Професіонал"
+        exp_text = "професіонал"
     elif experience_years == 5:
-        exp_text = "Експерт"
+        exp_text = "експерт"
     else:
         exp_text = f"{experience_years} років досвіду"
     return f"{exp_text} {job}"
@@ -92,9 +92,9 @@ def generate_gender():
     roll = random.random()  # 0.0 - 1.0
 
     if roll < 0.001:  # 0.1%
-        return "Андроїд"
+        return "андроїд"
     else:
-        return random.choice(["Чоловіча", "Жіноча"])
+        return random.choice(["чоловіча", "жіноча"])
     
 def generate_age_and_gender(data):
     age = random.choice(data.get("ages"))
@@ -178,14 +178,14 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
             "fobias": fobias_pool.pop(),
             "hobies": hobies_pool.pop(),
             "backpack": items,
+            "extra_info": extra_info_pool.pop(),
             "large_inventory": large_inventory,
             "trait": traits_pool.pop(),
-            "extra_info": extra_info_pool.pop(),
             "special_cards": cards
         }
         players[name] = player
 
-    return players, body_pool, traits_pool, jobs_pool, health_pool, hobies_pool, fobias_pool, large_inventory_pool, backpack_pool, extra_info_pool, cards_pool
+    return players, body_pool, traits_pool, jobs_pool, health_pool, hobies_pool, fobias_pool, extra_info_pool, large_inventory_pool, backpack_pool, cards_pool
 
 def save_player_files(players):
     ensure_players_dir()
@@ -212,9 +212,9 @@ def save_player_files(players):
             f.write(f"Здоров'я: {player['health']}\n")
             f.write(f"Хобі: {player['hobies']}\n")
             f.write(f"Фобія: {player['fobias']} {fobia_level}% \n")
+            f.write(f"Додаткові відомості: {player['extra_info']}\n")
             f.write(f"Великий інвентар: {player['large_inventory']}\n")
             f.write(f"Рюкзак: {backpack_str}\n")
-            f.write(f"Додаткові відомості: {player['extra_info']}\n")
             f.write(f"Спеціальні картки: {special_cards_str}\n")
 
 def generate_bunker(data):
@@ -615,7 +615,7 @@ def main():
     items_per_player = 2
     cards_per_player = 2
     # можна дати можливість ввести іншу кількість, але поки default
-    players, body_pool, traits_pool, jobs_pool, health_pool, hobies_pool, fobias_pool, large_inventory_pool, backpack_pool, extra_info_pool, cards_pool = generate_players(player_names, data, items_per_player=items_per_player, cards_per_player=cards_per_player)
+    players, body_pool, traits_pool, jobs_pool, health_pool, hobies_pool, fobias_pool, extra_info_pool, large_inventory_pool, backpack_pool, cards_pool = generate_players(player_names, data, items_per_player=items_per_player, cards_per_player=cards_per_player)
 
     # записуємо початкові файли
     save_player_files(players)
