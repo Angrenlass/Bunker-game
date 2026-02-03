@@ -44,6 +44,28 @@ def load_state():
     return None
 
 # Генерація професії зі стажем
+def assign_hobby_with_experience(hobies_pool):
+    if not hobies_pool:
+        return "Ледащо"
+    hobby = hobies_pool.pop()  # Щоб не повторювались
+    experience_years = random.randint(0, 5)
+    if experience_years == 0:
+        exp_text = "початківець"
+    elif experience_years == 1:
+        exp_text = "любитель"
+    elif experience_years == 2:
+        exp_text = "обізнаний"
+    elif experience_years == 3:
+        exp_text = "досвідчений"
+    elif experience_years == 4:
+        exp_text = "майстер"
+    elif experience_years == 5:
+        exp_text = "гуру"
+    else:
+        exp_text = f"{experience_years} років досвіду"
+    return f"{hobby} ({exp_text})"
+
+# Генерація професії зі стажем
 def assign_job_with_experience(jobs_pool):
     if not jobs_pool:
         return "Безробітній"
@@ -88,13 +110,38 @@ def assign_disease_with_stage(health_pool, data, used_health):
         used_health.add(health)
         return health
     
+
 def generate_gender():
     roll = random.random()  # 0.0 - 1.0
 
-    if roll < 0.001:  # 0.1%
+    # 0.1% шанс на андроїда
+    if roll < 0.001:
         return "андроїд"
+
+    # базова стать
+    gender = random.choice(["чоловіча", "жіноча"])
+    details = []
+
+    # 10% шанс на безплідність
+    if random.random() < 0.10:
+        details.append("безплідний" if gender == "чоловіча" else "безплідна")
+
+    # 5% шанс на сексуальну орієнтацію
+    if random.random() < 0.05:
+        if gender == "чоловіча":
+            details.append("гей")
+        else:
+            details.append("лесбіянка")
+
+    # 1% шанс на транс
+    if random.random() < 0.01:
+        details.append("транс")
+
+    # збираємо результат
+    if details:
+        return f"{gender} ({', '.join(details)})"
     else:
-        return random.choice(["чоловіча", "жіноча"])
+        return gender
     
 def generate_age_and_gender(data):
     age = random.choice(data.get("ages"))
@@ -176,7 +223,7 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
             "body": body,
             "height": height,
             "fobias": fobias_pool.pop(),
-            "hobies": hobies_pool.pop(),
+            "hobies": assign_hobby_with_experience(hobies_pool),
             "backpack": items,
             "extra_info": extra_info_pool.pop(),
             "large_inventory": large_inventory,
