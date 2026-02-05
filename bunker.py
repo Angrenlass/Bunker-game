@@ -10,7 +10,6 @@ PLAYERS_DIR = "players"
 STATE_FILE = os.path.join(PLAYERS_DIR, "state.json")
 DATA_FILE = "data.json"
 
-# допоміжні
 def ensure_players_dir():
     os.makedirs(PLAYERS_DIR, exist_ok=True)
 
@@ -18,16 +17,7 @@ def sanitize_filename(name):
     # просте санітизування для імен файлів
     return "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).rstrip()
 
-def write_player_action(name: str, action: str, lines: list[str]):
-    ensure_players_dir()
-    filename = f"{sanitize_filename(name)}_{action}.txt"
-    path = os.path.join(PLAYERS_DIR, filename)
-
-    with open(path, "a", encoding="utf-8") as f:
-        for line in lines:
-            f.write(line + "\n")
-
-# збереження / завантаження стану
+# збереження стану
 def load_data():
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -43,49 +33,89 @@ def load_state():
             return json.load(f)
     return None
 
-# Генерація професії зі стажем
-def assign_hobby_with_experience(hobies_pool):
-    if not hobies_pool:
-        return "Ледащо"
-    hobby = hobies_pool.pop()  # Щоб не повторювались
-    experience_years = random.randint(0, 5)
-    if experience_years == 0:
-        exp_text = "початківець"
-    elif experience_years == 1:
-        exp_text = "любитель"
-    elif experience_years == 2:
-        exp_text = "обізнаний"
-    elif experience_years == 3:
-        exp_text = "досвідчений"
-    elif experience_years == 4:
-        exp_text = "майстер"
-    elif experience_years == 5:
-        exp_text = "гуру"
+# Додайте ці функції після assign_job_with_experience
+def parse_experience_text(years):
+    """Перетворює роки досвіду в текст"""
+    if years == 0:
+        return "новачок"
+    elif years == 1:
+        return "дилетант"
+    elif years == 2:
+        return "практикуючий"
+    elif years == 3:
+        return "досвідчений"
+    elif years == 4:
+        return "професіонал"
+    elif years == 5:
+        return "експерт"
     else:
-        exp_text = f"{experience_years} років досвіду"
-    return f"{hobby} ({exp_text})"
+        return f"{years} років досвіду"
 
-# Генерація професії зі стажем
-def assign_job_with_experience(jobs_pool):
-    if not jobs_pool:
-        return "Безробітній"
-    job = jobs_pool.pop()  # Щоб не повторювались
-    experience_years = random.randint(0, 5)
-    if experience_years == 0:
-        exp_text = "новачок"
-    elif experience_years == 1:
-        exp_text = "дилетант"
-    elif experience_years == 2:
-        exp_text = "практикуючий"
-    elif experience_years == 3:
-        exp_text = "досвідчений"
-    elif experience_years == 4:
-        exp_text = "професіонал"
-    elif experience_years == 5:
-        exp_text = "експерт"
+def parse_hobby_experience_text(years):
+    """Перетворює роки досвіду хобі в текст"""
+    if years == 0:
+        return "початківець"
+    elif years == 1:
+        return "любитель"
+    elif years == 2:
+        return "обізнаний"
+    elif years == 3:
+        return "досвідчений"
+    elif years == 4:
+        return "майстер"
+    elif years == 5:
+        return "гуру"
     else:
-        exp_text = f"{experience_years} років досвіду"
-    return f"{exp_text} {job}"
+        return f"{years} років досвіду"
+
+def extract_job_parts(job_string):
+    """Розбиває рядок професії на досвід та назву"""
+    if not isinstance(job_string, str):
+        return "безробітній", "Безробітній"
+    
+    parts = job_string.split()
+    if len(parts) >= 2:
+        exp = parts[0]
+        name = " ".join(parts[1:])
+        return exp, name
+    return "новачок", job_string
+
+def extract_hobby_parts(hobby_string):
+    """Розбиває рядок хобі на назву та досвід"""
+    if not isinstance(hobby_string, str):
+        return "Ледащо", "без досвіду"
+    
+    if "(" in hobby_string and ")" in hobby_string:
+        name = hobby_string.split("(")[0].strip()
+        exp = hobby_string.split("(")[1].replace(")", "").strip()
+        return name, exp
+    return hobby_string, "без досвіду"
+
+def assign_job_with_experience(jobs_pool, experience_years=None):
+    """Генерація професії зі стажем (досвідом)"""
+    if not jobs_pool:
+        return "безробітній", "Безробітній"
+    
+    job = jobs_pool.pop()  # Щоб не повторювались
+    
+    if experience_years is None:
+        experience_years = random.randint(0, 5)
+    
+    exp_text = parse_experience_text(experience_years)
+    return exp_text, job
+
+def assign_hobby_with_experience(hobies_pool, experience_years=None):
+    """Генерація хобі зі стажем (досвідом)"""
+    if not hobies_pool:
+        return "Ледащо", "без досвіду"
+    
+    hobby = hobies_pool.pop()  # Щоб не повторювались
+    
+    if experience_years is None:
+        experience_years = random.randint(0, 5)
+    
+    exp_text = parse_hobby_experience_text(experience_years)
+    return hobby, exp_text
 
 def assign_disease_with_stage(health_pool, data, used_health):
     health_pool = data.get("health", [])
@@ -114,30 +144,24 @@ def assign_disease_with_stage(health_pool, data, used_health):
 def generate_gender():
     roll = random.random()  # 0.0 - 1.0
 
-    # 0.1% шанс на андроїда
     if roll < 0.001:
         return "андроїд"
 
-    # базова стать
     gender = random.choice(["чоловіча", "жіноча"])
     details = []
 
-    # 10% шанс на безплідність
     if random.random() < 0.10:
         details.append("безплідний" if gender == "чоловіча" else "безплідна")
 
-    # 5% шанс на сексуальну орієнтацію
     if random.random() < 0.05:
         if gender == "чоловіча":
             details.append("гей")
         else:
             details.append("лесбіянка")
 
-    # 1% шанс на транс
     if random.random() < 0.01:
         details.append("транс")
 
-    # збираємо результат
     if details:
         return f"{gender} ({', '.join(details)})"
     else:
@@ -148,7 +172,6 @@ def generate_age_and_gender(data):
     gender = generate_gender()
     return age, gender
 
-# генерація гравців та бункера
 def generate_players(player_names, data, items_per_player=2, cards_per_player=2):
     # backpack_pool копія з data["backpack_items"]
     backpack_pool = data["backpack"].copy()
@@ -214,20 +237,35 @@ def generate_players(player_names, data, items_per_player=2, cards_per_player=2)
                 cards.append(cards_pool.pop())
             else:
                 break
+        
+        # Генерація професії з досвідом
+        exp_text, job = assign_job_with_experience(jobs_pool)
+        
+        # Генерація хобі з досвідом
+        hobby, hobby_exp = assign_hobby_with_experience(hobies_pool)
+        
+        # Генерація фобії з відсотком
+        if fobias_pool:
+            fobia_name = fobias_pool.pop()
+            fobia_percentage = random.randint(33, 100)
+        else:
+            fobia_name = "Немає"
+            fobia_percentage = 50
+
         player = {
             "name": name,
             "health": assign_disease_with_stage(health_pool, data, used_health),
-            "job": assign_job_with_experience(jobs_pool),
+            "job": f"{exp_text} {job}",
             "age": age,
             "gender": gender,
             "body": body,
             "height": height,
-            "fobias": fobias_pool.pop(),
-            "hobies": assign_hobby_with_experience(hobies_pool),
+            "fobias": f"{fobia_name} {fobia_percentage}%",
+            "hobies": f"{hobby} ({hobby_exp})",
             "backpack": items,
-            "extra_info": extra_info_pool.pop(),
+            "extra_info": extra_info_pool.pop() if extra_info_pool else "Немає",
             "large_inventory": large_inventory,
-            "trait": traits_pool.pop(),
+            "trait": traits_pool.pop() if traits_pool else "Немає",
             "special_cards": cards
         }
         players[name] = player
@@ -264,13 +302,54 @@ def save_player_files(players):
             f.write(f"Рюкзак: {backpack_str}\n")
             f.write(f"Спеціальні картки: {special_cards_str}\n")
 
+def save_single_player_file(player):
+    """Зберігає файл для одного гравця"""
+    ensure_players_dir()
+    fname = os.path.join(PLAYERS_DIR, f"{sanitize_filename(player['name'])}.txt")
+    
+    # Перевіряємо формат фобії
+    fobia_display = player["fobias"]
+    if "%" not in player["fobias"]:
+        fobia_display = f"{player['fobias']} {random.randint(33, 100)}%"
+    
+    with open(fname, "w", encoding="utf-8") as f:
+        backpack_str = (
+            "\n - " + "\n - ".join(player['backpack'])
+            if player['backpack']
+            else " —"
+        )
+        special_cards_str = (
+            "\n - " + "\n - ".join(player.get('special_cards', []))
+            if player.get('special_cards')
+            else " —"
+        )
+        
+        f.write(f"Гравець: {player['name']}\n")
+        f.write(f"Стать: {player['gender']}, {player['age']} років\n")
+        f.write(f"Статура: {player['body']}, {player['height']} см\n")
+        f.write(f"Риса характеру: {player['trait']}\n")
+        f.write(f"Професія: {player['job']}\n")
+        f.write(f"Здоров'я: {player['health']}\n")
+        f.write(f"Хобі: {player['hobies']}\n")
+        f.write(f"Фобія: {fobia_display}\n")
+        f.write(f"Додаткові відомості: {player['extra_info']}\n")
+        f.write(f"Великий інвентар: {player['large_inventory']}\n")
+        f.write(f"Рюкзак: {backpack_str}\n")
+        if 'special_cards' in player:
+            f.write(f"Спеціальні картки: {special_cards_str}\n")
+
+def save_player_files(players):
+    """Зберігає файли для всіх гравців"""
+    for player in players.values():
+        save_single_player_file(player)
+
 def generate_bunker(data):
     ensure_players_dir()
     cataclysm = random.choice(data.get("cataclysms", ["Невідомий катаклізм"]))
     description = random.choice(data.get("descriptions", ["Опис відсутній"]))
     bunker_items = random.sample(data.get("bunker_items", []), min(3, len(data.get("bunker_items", []))))
 
-    size = random.randint(50, 500)
+    size = random.randint(20, 200)
     time = random.randint(6, 36)
     food = random.randint(3, 24)
     water = random.randint(3, 24)
@@ -285,107 +364,130 @@ def generate_bunker(data):
         f.write(f"Їжа: вистачить на {food} місяців\n")
         f.write(f"Вода: вистачить на {water} місяців\n")
 
+
 def reroll_player_field(state, name, field, pool_name, *, is_list=False):
     # робимо іменя регістр-незалежним
-    player_key = None
-    for k in state["players"].keys():
-        if k.lower() == name.lower():
-            player_key = k
-            break
-
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
     if not player_key:
-        write_player_action(name, field, ["❌ Гравця не знайдено"])
-        return
+        print(f"❌ Гравця {name} не знайдено")
+        return False
 
     player = state["players"][player_key]
     pool = state.get(pool_name)
 
     if not pool:
-        write_player_action(player_key, field, [f"❌ Пул {pool_name} порожній або відсутній"])
-        return
+        print(f"❌ Пул {pool_name} порожній або відсутній")
+        return False
 
     if is_list:
-        player[field] = []
+        if not player.get(field):
+            player[field] = []
         item = pool.pop()
         player[field].append(item)
-        lines = [f"{field} оновлено:", f" - {item}"]
     else:
         item = pool.pop()
         player[field] = item
-        lines = [f"{field} оновлено:", f" - {item}"]
 
+    # Спеціальна обробка для фобій (додаємо відсоток)
+    if field == "fobias":
+        if "%" not in player[field]:
+            percentage = random.randint(33, 100)
+            player[field] = f"{player[field]} {percentage}%"
+    
+    # Спеціальна обробка для професій та хобі
+    elif field == "job":
+        if " " not in player[field]:
+            # Додаємо досвід, якщо його немає
+            exp_text = parse_experience_text(random.randint(0, 5))
+            player[field] = f"{exp_text} {player[field]}"
+    
+    elif field == "hobies":
+        if "(" not in player[field]:
+            # Додаємо досвід, якщо його немає
+            hobby_exp = parse_hobby_experience_text(random.randint(0, 5))
+            player[field] = f"{player[field]} ({hobby_exp})"
+
+    # Зберігаємо стан та оновлюємо файл
     save_state(state)
-    write_player_action(player_key, field, lines)
+    save_single_player_file(player)
+    
+    print(f"✅ {field} для {name} оновлено")
+    return True
 
 def reroll_health(state, data, name):
-    # регістр-незалежне ім'я
     player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
     if not player_key:
-        write_player_action(name, "health", ["❌ Гравця не знайдено"])
-        return
+        print(f"❌ Гравця {name} не знайдено")
+        return False
 
     player = state["players"][player_key]
     used = set()
     player["health"] = assign_disease_with_stage(state["health_pool"], data, used)
+    
+    # Зберігаємо стан та оновлюємо файл
     save_state(state)
-    write_player_action(player_key, "health", [f"Нове здоровʼя: {player['health']}"])
+    save_single_player_file(player)
+    
+    print(f"✅ Здоров'я для {name} оновлено")
+    return True
 
 def reroll_body(state, name):
     player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
     if not player_key:
-        write_player_action(name, "body", ["❌ Гравця не знайдено"])
-        return
+        print(f"❌ Гравця {name} не знайдено")
+        return False
 
     player = state["players"][player_key]
 
     if not state["body_pool"]:
-        write_player_action(player_key, "body", ["❌ body_pool порожній"])
-        return
+        print(f"❌ Пул статури порожній")
+        return False
 
     body = state["body_pool"].pop()
     height = random.randint(140, 200)
     player["body"] = body
     player["height"] = height
+    
+    # Зберігаємо стан та оновлюємо файл
     save_state(state)
-    write_player_action(player_key, "body", [f"Статура: {body}", f"Зріст: {height} см"])
+    save_single_player_file(player)
+    
+    print(f"✅ Статура та зріст для {name} оновлені")
+    return True
 
 def add_backpack_items(state, name, count=1):
-    player = state["players"].get(name)
-    if not player:
-        write_player_action(name, "backpack_add", ["❌ Гравця не знайдено"])
-        return
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        print(f"❌ Гравця {name} не знайдено")
+        return False
 
+    player = state["players"][player_key]
     added = []
 
     for _ in range(count):
         if not state["backpack_pool"]:
             break
         item = state["backpack_pool"].pop()
+        if "backpack" not in player or not player["backpack"]:
+            player["backpack"] = []
         player["backpack"].append(item)
         added.append(item)
 
     save_state(state)
+    save_single_player_file(player)
 
     if added:
-        write_player_action(
-            name,
-            "backpack_add",
-            [f"Додано предмети: {', '.join(added)}"]
-        )
+        print(f"✅ Додано {len(added)} предметів у рюкзак для {name}")
     else:
-        write_player_action(
-            name,
-            "backpack_add",
-            ["❌ Нічого не додано — пул порожній"]
-        )
+        print(f"❌ Нічого не додано — пул порожній")
+    return bool(added)
 
 def regen_backpack(state, name):
-    """Очищає та перегенерує рюкзак, записує один файл із усіма предметами"""
-    # знайти гравця регістр-незалежно
+    """Очищає та перегенерує рюкзак"""
     player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
     if not player_key:
-        write_player_action(name, "backpack_regen", ["❌ Гравця не знайдено"])
-        return
+        print(f"❌ Гравця {name} не знайдено")
+        return False
 
     player = state["players"][player_key]
 
@@ -394,48 +496,48 @@ def regen_backpack(state, name):
 
     # генеруємо нові предмети
     new_items = []
-    for _ in range(state["items_per_player"]):
+    for _ in range(state.get("items_per_player", 2)):
         if state["backpack_pool"]:
             item = state["backpack_pool"].pop()
             player["backpack"].append(item)
             new_items.append(item)
 
     save_state(state)
+    save_single_player_file(player)
 
-    # формуємо один лог
     if not new_items:
-        lines = ["❌ Нічого не додано — пул порожній"]
+        print(f"❌ Нічого не додано — пул порожній")
+        return False
     else:
-        lines = ["🎒 Рюкзак очищено та перегенеровано:"]
-        for item in new_items:
-            lines.append(f" - {item}")
-
-    write_player_action(player_key, "backpack_regen", lines)
-
+        print(f"✅ Рюкзак для {name} очищено та перегенеровано ({len(new_items)} предметів)")
+        return True
 
 def reroll_large_inventory(state, name):
     player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
     if not player_key:
-        write_player_action(name, "large_inventory", ["❌ Гравця не знайдено"])
-        return
+        print(f"❌ Гравця {name} не знайдено")
+        return False
 
     player = state["players"][player_key]
 
     if not state["large_inventory_pool"]:
-        write_player_action(player_key, "large_inventory", ["❌ Пул порожній"])
-        return
+        print(f"❌ Пул великого інвентаря порожній")
+        return False
 
     item = state["large_inventory_pool"].pop()
     player["large_inventory"] = item
+    
     save_state(state)
-    write_player_action(player_key, "large_inventory", [f"Великий інвентар: {item}"])
+    save_single_player_file(player)
+    
+    print(f"✅ Великий інвентар для {name} оновлено")
+    return True
 
 def reroll_age_and_gender(state, data, name):
-    # знайти гравця регістр-незалежно
     player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
     if not player_key:
-        write_player_action(name, "rand_age_gender", ["❌ Гравця не знайдено"])
-        return
+        print(f"❌ Гравця {name} не знайдено")
+        return False
 
     player = state["players"][player_key]
 
@@ -446,39 +548,44 @@ def reroll_age_and_gender(state, data, name):
     # оновлюємо стан
     player["age"] = age
     player["gender"] = gender
+    
     save_state(state)
-
-    # записуємо лог
-    write_player_action(player_key, "rand_age_gender", [
-        f"🎲 Новий вік: {age} років",
-        f"🎲 Нова стать: {gender}"
-    ])
+    save_single_player_file(player)
+    
+    print(f"✅ Вік та стать для {name} оновлені")
+    return True
 
 def reroll_age(state, data, name):
-    # знайти гравця регістр-незалежно
     player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
     if not player_key:
-        write_player_action(name, "rand_age", ["❌ Гравця не знайдено"])
-        return
+        print(f"❌ Гравця {name} не знайдено")
+        return False
 
     player = state["players"][player_key]
     age = random.choice(data.get("ages", [18]))
     player["age"] = age
+    
     save_state(state)
-    write_player_action(player_key, "rand_age", [f"🎲 Новий вік: {age} років"])
-
+    save_single_player_file(player)
+    
+    print(f"✅ Вік для {name} оновлено")
+    return True
 
 def reroll_gender(state, name):
     player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
     if not player_key:
-        write_player_action(name, "rand_gender", ["❌ Гравця не знайдено"])
-        return
+        print(f"❌ Гравця {name} не знайдено")
+        return False
 
     player = state["players"][player_key]
     gender = generate_gender()
     player["gender"] = gender
+    
     save_state(state)
-    write_player_action(player_key, "rand_gender", [f"🎲 Нова стать: {gender}"])
+    save_single_player_file(player)
+    
+    print(f"✅ Стать для {name} оновлено")
+    return True
 
 def read_bunker():
     path = os.path.join(PLAYERS_DIR, "bunker.txt")
@@ -525,6 +632,359 @@ def regen_cataclysm(data):
 
     write_bunker(b)
 
+def regen_all_players(state, data, field):
+    """Перегенеровує обрану характеристику всім гравцям"""
+    updated_count = 0
+    
+    for player_name, player in state["players"].items():
+        if field == "fobia":
+            # Генерація фобії з відсотком
+            if state["fobias_pool"]:
+                new_fobia = state["fobias_pool"].pop()
+                percentage = random.randint(33, 100)
+                player["fobias"] = f"{new_fobia} {percentage}%"
+                updated_count += 1
+        
+        elif field == "hobby":
+            # Генерація хобі з досвідом
+            if state["hobies_pool"]:
+                hobby, exp = assign_hobby_with_experience(state["hobies_pool"])
+                player["hobies"] = f"{hobby} ({exp})"
+                updated_count += 1
+        
+        elif field == "health":
+            # Генерація здоров'я
+            if state["health_pool"]:
+                used = set()
+                player["health"] = assign_disease_with_stage(state["health_pool"], data, used)
+                updated_count += 1
+        
+        elif field == "age":
+            # Генерація віку
+            player["age"] = random.choice(data.get("ages", [25]))
+            updated_count += 1
+        
+        elif field == "gender":
+            # Генерація статі
+            player["gender"] = generate_gender()
+            updated_count += 1
+        
+        elif field == "body":
+            # Генерація статури та зросту
+            if state["body_pool"]:
+                player["body"] = state["body_pool"].pop()
+                player["height"] = random.randint(140, 200)
+                updated_count += 1
+        
+        elif field == "height":
+            # Генерація тільки зросту
+            player["height"] = random.randint(140, 200)
+            updated_count += 1
+        
+        elif field == "backpack":
+            # Перегенерація рюкзака
+            player["backpack"] = []
+            items_added = 0
+            for _ in range(state.get("items_per_player", 2)):
+                if state["backpack_pool"]:
+                    player["backpack"].append(state["backpack_pool"].pop())
+                    items_added += 1
+            if items_added > 0:
+                updated_count += 1
+        
+        elif field == "extra_info":
+            # Генерація додаткової інформації
+            if state["extra_info_pool"]:
+                player["extra_info"] = state["extra_info_pool"].pop()
+                updated_count += 1
+        
+        elif field == "large_inventory":
+            # Генерація великого інвентаря
+            if state["large_inventory_pool"]:
+                player["large_inventory"] = state["large_inventory_pool"].pop()
+                updated_count += 1
+        
+        elif field == "trait":
+            # Генерація риси характеру
+            if state["traits_pool"]:
+                player["trait"] = state["traits_pool"].pop()
+                updated_count += 1
+        
+        elif field == "job":
+            # Генерація професії з досвідом
+            if state["jobs_pool"]:
+                exp, job = assign_job_with_experience(state["jobs_pool"])
+                player["job"] = f"{exp} {job}"
+                updated_count += 1
+    
+    # Зберігаємо стан та оновлюємо файли для всіх гравців
+    save_state(state)
+    for player in state["players"].values():
+        save_single_player_file(player)
+    
+    # Повертаємо тільки кількість оновлених гравців, без деталей
+    print(f"✅ {field} перегенеровано для {updated_count} гравців")
+    return updated_count
+
+def regen_player_completely(state, data, name):
+    """Повністю перегенеровує картку гравця"""
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        print(f"❌ Гравця {name} не знайдено")
+        return None
+    
+    # Отримуємо пули зі стану
+    backpack_pool = state.get("backpack_pool", []).copy()
+    body_pool = state.get("body_pool", []).copy()
+    traits_pool = state.get("traits_pool", []).copy()
+    extra_info_pool = state.get("extra_info_pool", []).copy()
+    large_inventory_pool = state.get("large_inventory_pool", []).copy()
+    health_pool = state.get("health_pool", []).copy()
+    jobs_pool = state.get("jobs_pool", []).copy()
+    fobias_pool = state.get("fobias_pool", []).copy()
+    hobies_pool = state.get("hobies_pool", []).copy()
+    
+    # Перемішуємо пули
+    random.shuffle(backpack_pool)
+    random.shuffle(body_pool)
+    random.shuffle(traits_pool)
+    random.shuffle(extra_info_pool)
+    random.shuffle(large_inventory_pool)
+    random.shuffle(health_pool)
+    random.shuffle(jobs_pool)
+    random.shuffle(fobias_pool)
+    random.shuffle(hobies_pool)
+    
+    used_health = set()
+    
+    # Генеруємо нові характеристики
+    height = random.randint(140, 200)
+    age, gender = generate_age_and_gender(data)
+    
+    if body_pool:
+        body = body_pool.pop()
+    else:
+        body = "Невідомо"
+    
+    if large_inventory_pool:
+        large_inventory = large_inventory_pool.pop()
+    else:
+        large_inventory = "Відсутній"
+    
+    # Рюкзак
+    items = []
+    for _ in range(state["items_per_player"]):
+        if backpack_pool:
+            items.append(backpack_pool.pop())
+    
+    # Оновлюємо гравця
+    player = state["players"][player_key]
+    player.update({
+        "health": assign_disease_with_stage(health_pool, data, used_health),
+        "job": f"{assign_job_with_experience(jobs_pool)[0]} {assign_job_with_experience(jobs_pool)[1]}",
+        "age": age,
+        "gender": gender,
+        "body": body,
+        "height": height,
+        "fobias": f"{fobias_pool.pop() if fobias_pool else 'Немає'} {random.randint(33, 100)}%",
+        "hobies": f"{assign_hobby_with_experience(hobies_pool)[0]} ({assign_hobby_with_experience(hobies_pool)[1]})",
+        "backpack": items,
+        "extra_info": extra_info_pool.pop() if extra_info_pool else "Немає",
+        "large_inventory": large_inventory,
+        "trait": traits_pool.pop() if traits_pool else "Немає"
+    })
+    
+    # Оновлюємо пули в стані
+    state["backpack_pool"] = backpack_pool
+    state["body_pool"] = body_pool
+    state["traits_pool"] = traits_pool
+    state["extra_info_pool"] = extra_info_pool
+    state["large_inventory_pool"] = large_inventory_pool
+    state["health_pool"] = health_pool
+    state["jobs_pool"] = jobs_pool
+    state["fobias_pool"] = fobias_pool
+    state["hobies_pool"] = hobies_pool
+    
+    save_state(state)
+    save_single_player_file(player)
+    
+    print(f"✅ Гравець {name} повністю перегенерований")
+    return player
+
+def regen_job_only(state, name):
+    """Регенерує тільки професію, зберігаючи досвід"""
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        return False
+    
+    player = state["players"][player_key]
+    
+    # Отримуємо поточний досвід
+    current_exp, _ = extract_job_parts(player["job"])
+    
+    # Генеруємо нову професію з тим же досвідом
+    if state["jobs_pool"]:
+        job = state["jobs_pool"].pop()
+        player["job"] = f"{current_exp} {job}"
+        save_state(state)
+        save_single_player_file(player)
+        return True
+    
+    return False
+
+def regen_job_experience(state, name):
+    """Регенерує тільки досвід професії"""
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        return False
+    
+    player = state["players"][player_key]
+    
+    # Отримуємо поточну професію
+    _, current_job = extract_job_parts(player["job"])
+    
+    # Генеруємо новий досвід
+    new_experience_years = random.randint(0, 5)
+    new_exp_text = parse_experience_text(new_experience_years)
+    
+    player["job"] = f"{new_exp_text} {current_job}"
+    save_state(state)
+    save_single_player_file(player)
+    return True
+
+def regen_job_and_experience(state, name):
+    """Регенерує професію та досвід разом"""
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        return False
+    
+    player = state["players"][player_key]
+    
+    if state["jobs_pool"]:
+        exp, job = assign_job_with_experience(state["jobs_pool"])
+        player["job"] = f"{exp} {job}"
+        save_state(state)
+        save_single_player_file(player)
+        return True
+    
+    return False
+
+def regen_hobby_only(state, name):
+    """Регенерує тільки хобі, зберігаючи досвід"""
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        return False
+    
+    player = state["players"][player_key]
+    
+    # Отримуємо поточний досвід
+    _, current_exp = extract_hobby_parts(player["hobies"])
+    
+    # Генеруємо нове хобі з тим же досвідом
+    if state["hobies_pool"]:
+        hobby = state["hobies_pool"].pop()
+        player["hobies"] = f"{hobby} ({current_exp})"
+        save_state(state)
+        save_single_player_file(player)
+        return True
+    
+    return False
+
+def regen_hobby_experience(state, name):
+    """Регенерує тільки досвід хобі"""
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        return False
+    
+    player = state["players"][player_key]
+    
+    # Отримуємо поточне хобі
+    current_hobby, _ = extract_hobby_parts(player["hobies"])
+    
+    # Генеруємо новий досвід
+    new_experience_years = random.randint(0, 5)
+    new_exp_text = parse_hobby_experience_text(new_experience_years)
+    
+    player["hobies"] = f"{current_hobby} ({new_exp_text})"
+    save_state(state)
+    save_single_player_file(player)
+    return True
+
+def regen_hobby_and_experience(state, name):
+    """Регенерує хобі та досвід разом"""
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        return False
+    
+    player = state["players"][player_key]
+    
+    if state["hobies_pool"]:
+        hobby, exp = assign_hobby_with_experience(state["hobies_pool"])
+        player["hobies"] = f"{hobby} ({exp})"
+        save_state(state)
+        save_single_player_file(player)
+        return True
+    
+    return False
+
+def regen_fobia_only(state, name):
+    """Регенерує тільки фобію, зберігаючи відсоток"""
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        return False
+    
+    player = state["players"][player_key]
+    
+    # Отримуємо поточний відсоток
+    current_percentage = player["fobias"].split()[-1] if "%" in player["fobias"] else "50%"
+    
+    # Генеруємо нову фобію з тим же відсотком
+    if state["fobias_pool"]:
+        fobia = state["fobias_pool"].pop()
+        player["fobias"] = f"{fobia} {current_percentage}"
+        save_state(state)
+        save_single_player_file(player)
+        return True
+    
+    return False
+
+def regen_fobia_percentage(state, name):
+    """Регенерує тільки відсоток фобії"""
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        return False
+    
+    player = state["players"][player_key]
+    
+    # Отримуємо поточну фобію
+    fobia_name = " ".join(player["fobias"].split()[:-1]) if "%" in player["fobias"] else player["fobias"]
+    
+    # Генеруємо новий відсоток
+    new_percentage = random.randint(33, 100)
+    
+    player["fobias"] = f"{fobia_name} {new_percentage}%"
+    save_state(state)
+    save_single_player_file(player)
+    return True
+
+def regen_fobia_and_percentage(state, name):
+    """Регенерує фобію та відсоток разом"""
+    player_key = next((k for k in state["players"] if k.lower() == name.lower()), None)
+    if not player_key:
+        return False
+    
+    player = state["players"][player_key]
+    
+    if state["fobias_pool"]:
+        fobia = state["fobias_pool"].pop()
+        percentage = random.randint(33, 100)
+        player["fobias"] = f"{fobia} {percentage}%"
+        save_state(state)
+        save_single_player_file(player)
+        return True
+    
+    return False
+
 def write_bunker(b):
     path = os.path.join(PLAYERS_DIR, "bunker.txt")
     with open(path, "w", encoding="utf-8") as f:
@@ -536,15 +996,8 @@ def write_bunker(b):
         f.write(f"Їжа: {b['Їжа']}\n")
         f.write(f"Вода: {b['Вода']}\n")
 
-def write_player_log(name, lines):
-    ensure_players_dir()
-    path = os.path.join(PLAYERS_DIR, f"{sanitize_filename(name)}_log.txt")
-    with open(path, "a", encoding="utf-8") as f:
-        for line in lines:
-            f.write(line + "\n")
-
 def interactive_loop(state, data):
-    print("\n🛠 Адмін панель (help — список команд)\n")
+    print("\nАдмін панель (help — список команд)\n")
 
     while True:
         try:
@@ -565,27 +1018,154 @@ def interactive_loop(state, data):
 
         if action == "help":
             print("""
-health <name>
-body <name>
-trait <name>
-hobby <name>
-fobia <name>
-extra <name>
-job <name>
-large <name>
+Стандартні команди:
+health <name> - перегенерувати здоров'я
+body <name> - перегенерувати статуру та зріст
+trait <name> - перегенерувати рису характеру
+hobby <name> - перегенерувати хобі (з досвідом)
+fobia <name> - перегенерувати фобію (з відсотком)
+extra <name> - перегенерувати додаткові відомості
+job <name> - перегенерувати професію (з досвідом)
+large <name> - перегенерувати великий інвентар
+agegender <name> - перегенерувати вік та стать
+age <name> - перегенерувати вік
+gender <name> - перегенерувати стать
+add backpack <name> [N] - додати N предметів у рюкзак
+regen backpack <name> - перегенерувати рюкзак
+regen bunker - перегенерувати бункер
+regen cataclysm - перегенерувати катаклізм
 
-add backpack <name> [N]
-regen backpack <name>
+Нові команди:
+regen_all <field> - перегенерувати поле всім гравцям
+  Поля: fobia, hobby, health, age, gender, body, height, backpack, extra_info, large_inventory, trait, job
+regen <name> all - повністю перегенерувати гравця
 
-bunker
-exit
+Команди для професії:
+job_only <name> - тільки професія (досвід залишається)
+job_exp <name> - тільки досвід професії
+job_full <name> - професія та досвід
+
+Команди для хобі:
+hobby_only <name> - тільки хобі (досвід залишається)
+hobby_exp <name> - тільки досвід хобі
+hobby_full <name> - хобі та досвід
+
+Команди для фобії:
+fobia_only <name> - тільки фобія (відсоток залишається)
+fobia_percent <name> - тільки відсоток фобії
+fobia_full <name> - фобія та відсоток
+
+exit - вийти
 """)
             continue
+        # --- універсальна команда для всіх гравців ---
+        if action == "regen_all" and len(parts) >= 2:
+            field = parts[1].lower()
+            valid_fields = ["fobia", "hobby", "health", "age", "gender", "body", "height", 
+                          "backpack", "extra_info", "large_inventory", "trait", "job"]
+            
+            if field in valid_fields:
+                regen_all_players(state, data, field)  # Більше не виводимо деталі
+            else:
+                print(f"❌ Невірне поле. Доступні: {', '.join(valid_fields)}")
+            continue
 
-        # --- гравець ---
-        if len(parts) >= 2:
-            name = parts[-1]
+        # --- повна перегенерація гравця ---
+        if action == "regen" and len(parts) >= 3 and parts[2].lower() == "all":
+            name = parts[1]
+            player = regen_player_completely(state, data, name)
+            # Повідомлення вже виводиться в самій функції
+            continue
 
+        # --- команди для професії ---
+        if action == "job_only" and len(parts) >= 2:
+            name = parts[1]
+            if regen_job_only(state, name):
+                print(f"✅ Професія для {name} перегенерована (досвід залишений)")
+            else:
+                print(f"❌ Помилка при регенерації професії для {name}")
+            continue
+
+        if action == "job_exp" and len(parts) >= 2:
+            name = parts[1]
+            if regen_job_experience(state, name):
+                print(f"✅ Досвід професії для {name} перегенерований")
+            else:
+                print(f"❌ Помилка при регенерації досвіду для {name}")
+            continue
+
+        if action == "job_full" and len(parts) >= 2:
+            name = parts[1]
+            if regen_job_and_experience(state, name):
+                print(f"✅ Професія та досвід для {name} перегенеровані")
+            else:
+                print(f"❌ Помилка при регенерації професії та досвіду для {name}")
+            continue
+
+        # --- команди для хобі ---
+        if action == "hobby_only" and len(parts) >= 2:
+            name = parts[1]
+            if regen_hobby_only(state, name):
+                print(f"✅ Хобі для {name} перегенероване (досвід залишений)")
+            else:
+                print(f"❌ Помилка при регенерації хобі для {name}")
+            continue
+
+        if action == "hobby_exp" and len(parts) >= 2:
+            name = parts[1]
+            if regen_hobby_experience(state, name):
+                print(f"✅ Досвід хобі для {name} перегенерований")
+            else:
+                print(f"❌ Помилка при регенерації досвіду хобі для {name}")
+            continue
+
+        if action == "hobby_full" and len(parts) >= 2:
+            name = parts[1]
+            if regen_hobby_and_experience(state, name):
+                print(f"✅ Хобі та досвід для {name} перегенеровані")
+            else:
+                print(f"❌ Помилка при регенерації хобі та досвіду для {name}")
+            continue
+
+        # --- команди для фобії ---
+        if action == "fobia_only" and len(parts) >= 2:
+            name = parts[1]
+            if regen_fobia_only(state, name):
+                print(f"✅ Фобія для {name} перегенерована (відсоток залишений)")
+            else:
+                print(f"❌ Помилка при регенерації фобії для {name}")
+            continue
+
+        if action == "fobia_percent" and len(parts) >= 2:
+            name = parts[1]
+            if regen_fobia_percentage(state, name):
+                print(f"✅ Відсоток фобії для {name} перегенерований")
+            else:
+                print(f"❌ Помилка при регенерації відсотка фобії для {name}")
+            continue
+
+        if action == "fobia_full" and len(parts) >= 2:
+            name = parts[1]
+            if regen_fobia_and_percentage(state, name):
+                print(f"✅ Фобія та відсоток для {name} перегенеровані")
+            else:
+                print(f"❌ Помилка при регенерації фобії та відсотка для {name}")
+            continue
+
+        # --- стандартні команди (ПОТРІБНО ВИПРАВИТИ!) ---
+        
+        # Перевіряємо, чи команда потребує імені гравця
+        commands_requiring_name = ["health", "body", "trait", "hobby", "fobia", "extra", 
+                                 "job", "large", "agegender", "age", "gender", 
+                                 "add", "regen"]
+        
+        if action in commands_requiring_name:
+            if len(parts) < 2:
+                print(f"❌ Потрібно вказати ім'я гравця. Наприклад: {action} <ім'я>")
+                continue
+            
+            name = parts[1]  # Тепер ця змінна доступна в цій області
+        
         if action == "health":
             reroll_health(state, data, name)
 
@@ -610,14 +1190,6 @@ exit
         elif action == "large":
             reroll_large_inventory(state, name)
 
-        elif action == "add" and parts[1] == "backpack":
-            name = parts[2]
-            count = int(parts[3]) if len(parts) > 3 else 1
-            add_backpack_items(state, name, count)
-
-        elif action == "regen" and parts[1] == "backpack":
-            regen_backpack(state, name)
-
         elif action == "agegender":
             reroll_age_and_gender(state, data, name)
 
@@ -626,6 +1198,15 @@ exit
 
         elif action == "gender":
             reroll_gender(state, name)
+
+        elif action == "add" and len(parts) >= 3 and parts[1] == "backpack":
+            name = parts[2]
+            count = int(parts[3]) if len(parts) > 3 else 1
+            add_backpack_items(state, name, count)
+
+        elif action == "regen" and len(parts) >= 3 and parts[1] == "backpack":
+            name = parts[2]
+            regen_backpack(state, name)
 
         elif action == "regen" and parts[1] == "bunker":
             regen_bunker(data)
@@ -636,10 +1217,9 @@ exit
         else:
             print("❓ Невідома команда")
 
-# стартова логіка
 def main():
     if not os.path.exists(DATA_FILE):
-        print(f"Не знайдено {DATA_FILE}. Створи файл з даними (backpack_items тощо).")
+        print(f"Не знайдено {DATA_FILE}. Створи data.json")
         sys.exit(1)
 
     data = load_data()
